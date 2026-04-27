@@ -21,66 +21,43 @@ let maxEnergy = 5;
 let wave = 1;
 let waveEnemiesLeft = 0;
 
+// ---------------- SHOP ----------------
+let inShop = false;
+let shopCards = [];
+
 // ---------------- ROBOT ----------------
 let robot = { x: 100, y: 200, hp: 10, damage: 1, range: 100 };
 
 // ---------------- ENEMY TYPES ----------------
 const enemyTypes = {
-  normal: {
-    hp: 5,
-    speed: 1,
-    burnMult: 1,
-    splashMult: 1,
-    color: "red"
-  },
-
-  fast: {
-    hp: 3,
-    speed: 2,
-    burnMult: 1.2,
-    splashMult: 1,
-    color: "orange"
-  },
-
-  tank: {
-    hp: 15,
-    speed: 0.6,
-    burnMult: 0.5,
-    splashMult: 0.8,
-    color: "gray"
-  },
-
-  volatile: {
-    hp: 4,
-    speed: 1.2,
-    burnMult: 1,
-    splashMult: 1.8,
-    color: "purple"
-  }
+  normal: { hp: 5, speed: 1, burnMult: 1, splashMult: 1, color: "red" },
+  fast: { hp: 3, speed: 2, burnMult: 1.2, splashMult: 1, color: "orange" },
+  tank: { hp: 15, speed: 0.6, burnMult: 0.5, splashMult: 0.8, color: "gray" },
+  volatile: { hp: 4, speed: 1.2, burnMult: 1, splashMult: 1.8, color: "purple" }
 };
 
-// ---------------- WAVES ----------------
+// ---------------- WAVE SYSTEM ----------------
 function startWave() {
   waveEnemiesLeft = 5 + wave * 2;
 }
 
-function randomEnemyType() {
-  const types = ["normal", "fast", "tank", "volatile"];
-  return types[Math.floor(Math.random() * types.length)];
+function randomType() {
+  const t = ["normal", "fast", "tank", "volatile"];
+  return t[Math.floor(Math.random() * t.length)];
 }
 
 function spawnEnemy() {
-  if (waveEnemiesLeft <= 0) return;
+  if (waveEnemiesLeft <= 0 || inShop) return;
 
-  const type = randomEnemyType();
-  const t = enemyTypes[type];
+  const type = randomType();
+  const data = enemyTypes[type];
 
   enemies.push({
     x: 800,
     y: 200,
     type,
-    hp: t.hp + wave,
-    speed: t.speed + wave * 0.05,
+    hp: data.hp + wave,
+    speed: data.speed + wave * 0.05,
     burnTimer: 0,
     burnDamage: 0
   });
@@ -88,25 +65,25 @@ function spawnEnemy() {
   waveEnemiesLeft--;
 }
 
-// ---------------- CARDS UI ----------------
-function getCardUI() {
-  const w = 100, h = 140, gap = 20;
-  const total = cards.length * w + (cards.length - 1) * gap;
-  const startX = (canvas.width - total) / 2;
+// ---------------- SHOP ----------------
+function generateShop() {
+  shopCards = [];
 
-  return cards.map((c, i) => ({
-    x: startX + i * (w + gap),
-    y: canvas.height - h - 10,
-    width: w,
-    height: h,
-    index: i
-  }));
+  while (shopCards.length < 3) {
+    const c = cards[Math.floor(Math.random() * cards.length)];
+    if (!shopCards.includes(c)) shopCards.push(c);
+  }
+
+  inShop = true;
 }
 
-function selectCard(index) {
-  const card = cards[index];
+function buyCard(card) {
   selected[card.type] = card;
   updateRobot();
+
+  maxEnergy += 1;
+  inShop = false;
+  startWave();
 }
 
 // ---------------- ROBOT ----------------
@@ -123,23 +100,7 @@ function updateRobot() {
   });
 }
 
-// ---------------- ENEMIES ----------------
-function updateEnemies() {
-  enemies.forEach(e => {
-    e.x -= e.speed;
-
-    // burn
-    if (e.burnTimer > 0) {
-      const mult = enemyTypes[e.type].burnMult;
-      e.hp -= e.burnDamage * mult;
-      e.burnTimer--;
-    }
-  });
-
-  enemies = enemies.filter(e => e.hp > 0);
-}
-
-// ---------------- ATTACK + EFFECTS ----------------
+// ---------------- ATTACK ----------------
 function attack() {
   const weapon = selected.weapon;
 
@@ -149,20 +110,18 @@ function attack() {
 
       if (!weapon) return;
 
-      const typeData = enemyTypes[e.type];
+      const t = enemyTypes[e.type];
 
-      // 🔥 BURN
       if (weapon.ability === "burn") {
         e.burnTimer = 60;
-        e.burnDamage = 0.2 * typeData.burnMult;
+        e.burnDamage = 0.2 * t.burnMult;
       }
 
-      // 💥 SPLASH
       if (weapon.ability === "splash") {
         enemies.forEach(o => {
           if (o !== e && Math.abs(o.x - e.x) < 40) {
-            const mult = enemyTypes[o.type].splashMult;
-            o.hp -= robot.damage * 0.5 * mult;
+            const m = enemyTypes[o.type].splashMult;
+            o.hp -= robot.damage * 0.5 * m;
           }
         });
       }
@@ -170,6 +129,35 @@ function attack() {
   });
 
   enemies = enemies.filter(e => e.hp > 0);
+}
+
+// ---------------- UPDATE ----------------
+function updateEnemies() {
+  enemies.forEach(e => {
+    e.x -= e.speed;
+
+    if (e.burnTimer > 0) {
+      e.hp -= e.burnDamage;
+      e.burnTimer--;
+    }
+  });
+
+  enemies = enemies.filter(e => e.hp > 0);
+}
+
+// ---------------- UI ----------------
+function getCardUI() {
+  const w = 100, h = 140, gap = 20;
+  const total = cards.length * w + (cards.length - 1) * gap;
+  const startX = (canvas.width - total) / 2;
+
+  return cards.map((c, i) => ({
+    x: startX + i * (w + gap),
+    y: canvas.height - h - 10,
+    width: w,
+    height: h,
+    index: i
+  }));
 }
 
 // ---------------- DRAW ----------------
@@ -186,13 +174,13 @@ function draw() {
     ctx.fillRect(e.x, e.y, 20, 20);
   });
 
+  // cards
   const ui = getCardUI();
 
   ui.forEach(u => {
     const c = cards[u.index];
 
     let x = u.x, y = u.y;
-
     if (hoveredCard === u.index) y -= 20;
 
     ctx.fillStyle =
@@ -206,23 +194,90 @@ function draw() {
 
     ctx.fillStyle = "black";
     ctx.fillText(c.name, x + 10, y + 30);
-    ctx.fillText(c.ability || "-", x + 10, y + 60);
   });
+
+  // shop
+  if (inShop) {
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "white";
+    ctx.fillText("SHOP - choose 1 card", 300, 100);
+
+    shopCards.forEach((c, i) => {
+      const x = 300 + i * 150;
+      const y = 200;
+
+      ctx.fillStyle =
+        c.type === "head" ? "#4aa3ff" :
+        c.type === "body" ? "#4aff88" : "#ff4a4a";
+
+      ctx.fillRect(x, y, 120, 160);
+
+      ctx.fillStyle = "black";
+      ctx.fillText(c.name, x + 10, y + 40);
+      ctx.fillText("CLICK", x + 10, y + 120);
+    });
+  }
 
   ctx.fillStyle = "white";
   ctx.fillText(`Wave: ${wave}`, 10, 20);
-  ctx.fillText(`Enemies: ${enemies.length}`, 10, 40);
 }
+
+// ---------------- INPUT ----------------
+canvas.addEventListener("mousemove", e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
+
+  hoveredCard = null;
+
+  getCardUI().forEach(u => {
+    if (mx > u.x && mx < u.x + u.width && my > u.y && my < u.y + u.height) {
+      hoveredCard = u.index;
+    }
+  });
+});
+
+canvas.addEventListener("click", e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
+
+  if (inShop) {
+    shopCards.forEach((c, i) => {
+      const x = 300 + i * 150;
+      const y = 200;
+
+      if (mx > x && mx < x + 120 && my > y && my < y + 160) {
+        buyCard(c);
+      }
+    });
+    return;
+  }
+
+  getCardUI().forEach(u => {
+    if (mx > u.x && mx < u.x + u.width && my > u.y && my < u.y + u.height) {
+      const card = cards[u.index];
+      selected[card.type] = card;
+      updateRobot();
+    }
+  });
+});
 
 // ---------------- LOOP ----------------
 function loop() {
-  updateEnemies();
-  attack();
+  if (!inShop) {
+    updateEnemies();
+    attack();
+  }
+
   draw();
 
-  if (waveEnemiesLeft === 0 && enemies.length === 0) {
+  if (!inShop && waveEnemiesLeft === 0 && enemies.length === 0) {
     wave++;
-    startWave();
+    maxEnergy++;
+    generateShop();
   }
 
   requestAnimationFrame(loop);
