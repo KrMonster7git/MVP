@@ -13,6 +13,14 @@ const cards = [
 
 let selectedCards = [];
 
+const cardUI = cards.map((c, i) => ({
+  x: 10,
+  y: 10 + i * 70,
+  width: 120,
+  height: 60,
+  index: i
+}));
+
 function selectCard(index) {
   if (selectedCards.length >= 2) return;
   selectedCards.push(cards[index]);
@@ -81,20 +89,35 @@ function draw() {
   });
 
   // Cards UI
-  ctx.fillStyle = 'white';
-  cards.forEach((card, i) => {
-    ctx.fillText(`${i}: ${card.name}`, 10, 20 + i * 20);
+  cardUI.forEach(ui => {
+    ctx.strokeStyle = 'white';
+    ctx.strokeRect(ui.x, ui.y, ui.width, ui.height);
+
+    const card = cards[ui.index];
+    ctx.fillStyle = 'white';
+    ctx.fillText(card.name, ui.x + 5, ui.y + 20);
+    ctx.fillText(`Cost: ${card.cost}`, ui.x + 5, ui.y + 40);
   });
 
-  ctx.fillText("Press 0-3 to select cards", 10, 120);
+  ctx.fillText("Selected: " + selectedCards.map(c => c.name).join(', '), 10, 320);
 }
 
-// --- INPUT ---
-document.addEventListener('keydown', (e) => {
-  const index = parseInt(e.key);
-  if (!isNaN(index) && cards[index]) {
-    selectCard(index);
-  }
+// --- INPUT (MOUSE) ---
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  cardUI.forEach(ui => {
+    if (
+      mouseX >= ui.x &&
+      mouseX <= ui.x + ui.width &&
+      mouseY >= ui.y &&
+      mouseY <= ui.y + ui.height
+    ) {
+      selectCard(ui.index);
+    }
+  });
 });
 
 // --- LOOP ---
