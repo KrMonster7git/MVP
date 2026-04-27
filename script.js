@@ -13,13 +13,22 @@ const cards = [
 
 let selectedCards = [];
 
-const cardUI = cards.map((c, i) => ({
-  x: 10,
-  y: 10 + i * 70,
-  width: 120,
-  height: 60,
-  index: i
-}));
+// bottom hand UI
+function getCardUI() {
+  const width = 100;
+  const height = 140;
+  const gap = 20;
+  const totalWidth = cards.length * width + (cards.length - 1) * gap;
+  const startX = (canvas.width - totalWidth) / 2;
+
+  return cards.map((c, i) => ({
+    x: startX + i * (width + gap),
+    y: canvas.height - height - 10,
+    width,
+    height,
+    index: i
+  }));
+}
 
 function selectCard(index) {
   if (selectedCards.length >= 2) return;
@@ -88,25 +97,30 @@ function draw() {
     ctx.fillRect(e.x, e.y, 20, 20);
   });
 
-  // Cards UI
+  // Cards bottom
+  const cardUI = getCardUI();
+
   cardUI.forEach(ui => {
+    const card = cards[ui.index];
+
     ctx.strokeStyle = 'white';
     ctx.strokeRect(ui.x, ui.y, ui.width, ui.height);
 
-    const card = cards[ui.index];
     ctx.fillStyle = 'white';
-    ctx.fillText(card.name, ui.x + 5, ui.y + 20);
-    ctx.fillText(`Cost: ${card.cost}`, ui.x + 5, ui.y + 40);
+    ctx.fillText(card.name, ui.x + 10, ui.y + 30);
+    ctx.fillText(`Cost: ${card.cost}`, ui.x + 10, ui.y + 60);
   });
 
-  ctx.fillText("Selected: " + selectedCards.map(c => c.name).join(', '), 10, 320);
+  ctx.fillText("Selected: " + selectedCards.map(c => c.name).join(', '), 10, 20);
 }
 
-// --- INPUT (MOUSE) ---
+// --- INPUT ---
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
+
+  const cardUI = getCardUI();
 
   cardUI.forEach(ui => {
     if (
