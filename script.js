@@ -3,29 +3,29 @@ const ctx = canvas.getContext('2d');
 
 let enemies = [];
 
-// --- CARDS ---
+// ---------------- CARDS ----------------
 const cards = [
-  { name: "Light Head", type: "head", damage: 1, cost: 1 },
-  { name: "Heavy Body", type: "body", hp: 30, cost: 3 },
-  { name: "Laser Gun", type: "weapon", damage: 2, range: 120, cost: 2 },
-  { name: "Cannon", type: "weapon", damage: 4, range: 80, cost: 3 }
+  { name: "Fire Head", type: "head", damage: 1, cost: 1, ability: "burn" },
+  { name: "Tank Body", type: "body", hp: 30, cost: 3 },
+  { name: "Laser Gun", type: "weapon", damage: 2, range: 120, cost: 2, ability: "burn" },
+  { name: "Cannon", type: "weapon", damage: 4, range: 80, cost: 3, ability: "splash" }
 ];
 
 let selected = { head: null, body: null, weapon: null };
 let hoveredCard = null;
 
-// --- ENERGY ---
+// ---------------- ENERGY ----------------
 let maxEnergy = 5;
 let currentEnergy = 5;
 
-// --- WAVES ---
+// ---------------- WAVES ----------------
 let wave = 1;
 let waveEnemiesLeft = 0;
 
-// robot
+// ---------------- ROBOT ----------------
 let robot = { x: 100, y: 200, hp: 10, damage: 1, range: 100 };
 
-// ---------- WAVE SYSTEM ----------
+// ---------------- WAVES ----------------
 function startWave() {
   waveEnemiesLeft = 5 + wave * 2;
 }
@@ -37,36 +37,36 @@ function spawnEnemy() {
     x: 800,
     y: 200,
     hp: 3 + wave * 2,
-    speed: 1 + wave * 0.1
+    speed: 1 + wave * 0.1,
+    burnTimer: 0,
+    burnDamage: 0
   });
 
   waveEnemiesLeft--;
 }
 
-// ---------- CARDS ----------
+// ---------------- CARDS ----------------
 function getCardUI() {
-  const width = 100;
-  const height = 140;
-  const gap = 20;
-  const totalWidth = cards.length * width + (cards.length - 1) * gap;
-  const startX = (canvas.width - totalWidth) / 2;
+  const w = 100, h = 140, gap = 20;
+  const total = cards.length * w + (cards.length - 1) * gap;
+  const startX = (canvas.width - total) / 2;
 
   return cards.map((c, i) => ({
-    x: startX + i * (width + gap),
-    y: canvas.height - height - 10,
-    width,
-    height,
+    x: startX + i * (w + gap),
+    y: canvas.height - h - 10,
+    width: w,
+    height: h,
     index: i
   }));
 }
 
-function getTotalCost(nextCard=null) {
+function getTotalCost(nextCard = null) {
   let total = 0;
   Object.values(selected).forEach(c => { if (c) total += c.cost; });
 
   if (nextCard) {
-    const existing = selected[nextCard.type];
-    if (existing) total -= existing.cost;
+    const ex = selected[nextCard.type];
+    if (ex) total -= ex.cost;
     total += nextCard.cost;
   }
 
@@ -75,16 +75,13 @@ function getTotalCost(nextCard=null) {
 
 function selectCard(index) {
   const card = cards[index];
-  const cost = getTotalCost(card);
-
-  if (cost > maxEnergy) return;
+  if (getTotalCost(card) > maxEnergy) return;
 
   selected[card.type] = card;
-  currentEnergy = maxEnergy - getTotalCost();
   updateRobot();
 }
 
-// ---------- ROBOT ----------
+// ---------------- ROBOT ----------------
 function updateRobot() {
   robot.hp = 10;
   robot.damage = 1;
@@ -98,100 +95,115 @@ function updateRobot() {
   });
 }
 
-// ---------- GAME ----------
+// ---------------- ENEMIES ----------------
 function updateEnemies() {
-  enemies.forEach(e => e.x -= e.speed);
-}
-
-function attack() {
   enemies.forEach(e => {
-    if (Math.abs(e.x - robot.x) < robot.range) {
-      e.hp -= robot.damage;
+    e.x -= e.speed;
+
+    // 🔥 burn effect
+    if (e.burnTimer > 0) {
+      e.hp -= e.burnDamage;
+      e.burnTimer--;
     }
   });
 
   enemies = enemies.filter(e => e.hp > 0);
 }
 
-// ---------- DRAW ----------
+// ---------------- ATTACK + ABILITIES ----------------
+function attack() {
+  enemies.forEach(e => {
+    if (Math.abs(e.x - robot.x) < robot.range) {
+      e.hp -= robot.damage;
+
+      const weapon = selected.weapon;
+      if (!weapon) return;
+
+      // 🔥 BURN
+      if (weapon.ability === "burn") {
+        e.burnTimer = 60; // ~1 sec
+        e.burnDamage = 0.2;
+      }
+
+      // 💥 SPLASH
+      if (weapon.ability === "splash") {
+        enemies.forEach(o => {
+          if (o !== e && Math.abs(o.x - e.x) < 40) {
+            o.hp -= robot.damage * 0.5;
+          }
+        });
+      }
+    }
+  });
+
+  enemies = enemies.filter(e => e.hp > 0);
+}
+
+// ---------------- DRAW ----------------
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // robot
-  ctx.fillStyle = 'cyan';
+  ctx.fillStyle = "cyan";
   ctx.fillRect(robot.x, robot.y, 20, 20);
 
-  // enemies
-  ctx.fillStyle = 'red';
-  enemies.forEach(e => ctx.fillRect(e.x, e.y, 20, 20));
-
-  const cardUI = getCardUI();
-
-  cardUI.forEach(ui => {
-    const card = cards[ui.index];
-
-    let x = ui.x;
-    let y = ui.y;
-    let w = ui.width;
-    let h = ui.height;
-
-    if (hoveredCard === ui.index) {
-      y -= 20;
-      w *= 1.1;
-      h *= 1.1;
-    }
-
-    ctx.fillStyle =
-      card.type === 'head' ? '#4aa3ff' :
-      card.type === 'body' ? '#4aff88' : '#ff4a4a';
-
-    ctx.fillRect(x, y, w, h);
-
-    ctx.strokeStyle = selected[card.type] === card ? 'yellow' : 'white';
-    ctx.strokeRect(x, y, w, h);
-
-    ctx.fillStyle = 'black';
-    ctx.fillText(card.name, x + 10, y + 30);
-    ctx.fillText(`Cost: ${card.cost}`, x + 10, y + 50);
+  enemies.forEach(e => {
+    ctx.fillStyle = e.burnTimer > 0 ? "orange" : "red";
+    ctx.fillRect(e.x, e.y, 20, 20);
   });
 
-  ctx.fillStyle = 'white';
+  const ui = getCardUI();
+
+  ui.forEach(u => {
+    const c = cards[u.index];
+
+    let x = u.x, y = u.y;
+
+    if (hoveredCard === u.index) y -= 20;
+
+    ctx.fillStyle = "#333";
+    ctx.fillRect(x, y, u.width, u.height);
+
+    ctx.strokeStyle = selected[c.type] === c ? "yellow" : "white";
+    ctx.strokeRect(x, y, u.width, u.height);
+
+    ctx.fillStyle = "white";
+    ctx.fillText(c.name, x + 10, y + 30);
+    ctx.fillText(c.ability || "-", x + 10, y + 60);
+  });
+
+  ctx.fillStyle = "white";
   ctx.fillText(`Wave: ${wave}`, 10, 20);
-  ctx.fillText(`Enemies left: ${waveEnemiesLeft}`, 10, 40);
 }
 
-// ---------- INPUT ----------
-canvas.addEventListener('mousemove', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
+// ---------------- INPUT ----------------
+canvas.addEventListener("mousemove", e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
 
   hoveredCard = null;
-  const cardUI = getCardUI();
 
-  cardUI.forEach(ui => {
-    if (mx >= ui.x && mx <= ui.x + ui.width && my >= ui.y && my <= ui.y + ui.height) {
-      hoveredCard = ui.index;
+  getCardUI().forEach(u => {
+    if (mx > u.x && mx < u.x + u.width && my > u.y && my < u.y + u.height) {
+      hoveredCard = u.index;
     }
   });
 });
 
-canvas.addEventListener('click', (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
+canvas.addEventListener("click", e => {
+  const r = canvas.getBoundingClientRect();
+  const mx = e.clientX - r.left;
+  const my = e.clientY - r.top;
 
-  const cardUI = getCardUI();
-
-  cardUI.forEach(ui => {
-    if (mx >= ui.x && mx <= ui.x + ui.width && my >= ui.y && my <= ui.y + ui.height) {
-      selectCard(ui.index);
+  getCardUI().forEach(u => {
+    if (mx > u.x && mx < u.x + u.width && my > u.y && my < u.y + u.height) {
+      selectCard(u.index);
     }
   });
 });
 
-// ---------- LOOP ----------
-function gameLoop() {
+// ---------------- LOOP ----------------
+function loop() {
   updateEnemies();
   attack();
   draw();
@@ -201,11 +213,10 @@ function gameLoop() {
     startWave();
   }
 
-  requestAnimationFrame(gameLoop);
+  requestAnimationFrame(loop);
 }
 
-// start
 startWave();
-setInterval(spawnEnemy, 1000);
+setInterval(spawnEnemy, 900);
 
-gameLoop();
+loop();
