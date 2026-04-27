@@ -3,7 +3,7 @@ const ctx = canvas.getContext('2d');
 
 let enemies = [];
 
-// --- CARDS WITH TYPES + COST ---
+// --- CARDS ---
 const cards = [
   { name: "Light Head", type: "head", damage: 1, cost: 1 },
   { name: "Heavy Body", type: "body", hp: 30, cost: 3 },
@@ -14,23 +14,36 @@ const cards = [
 let selected = { head: null, body: null, weapon: null };
 let hoveredCard = null;
 
-// ENERGY
+// --- ENERGY ---
 let maxEnergy = 5;
 let currentEnergy = 5;
 
-function getTotalCost(nextCard=null) {
-  let total = 0;
-  Object.values(selected).forEach(c => { if (c) total += c.cost; });
+// --- WAVES ---
+let wave = 1;
+let waveEnemiesLeft = 0;
 
-  if (nextCard) {
-    const existing = selected[nextCard.type];
-    if (existing) total -= existing.cost;
-    total += nextCard.cost;
-  }
+// robot
+let robot = { x: 100, y: 200, hp: 10, damage: 1, range: 100 };
 
-  return total;
+// ---------- WAVE SYSTEM ----------
+function startWave() {
+  waveEnemiesLeft = 5 + wave * 2;
 }
 
+function spawnEnemy() {
+  if (waveEnemiesLeft <= 0) return;
+
+  enemies.push({
+    x: 800,
+    y: 200,
+    hp: 3 + wave * 2,
+    speed: 1 + wave * 0.1
+  });
+
+  waveEnemiesLeft--;
+}
+
+// ---------- CARDS ----------
 function getCardUI() {
   const width = 100;
   const height = 140;
@@ -47,6 +60,19 @@ function getCardUI() {
   }));
 }
 
+function getTotalCost(nextCard=null) {
+  let total = 0;
+  Object.values(selected).forEach(c => { if (c) total += c.cost; });
+
+  if (nextCard) {
+    const existing = selected[nextCard.type];
+    if (existing) total -= existing.cost;
+    total += nextCard.cost;
+  }
+
+  return total;
+}
+
 function selectCard(index) {
   const card = cards[index];
   const cost = getTotalCost(card);
@@ -58,8 +84,7 @@ function selectCard(index) {
   updateRobot();
 }
 
-let robot = { x: 100, y: 200, hp: 10, damage: 1, range: 100 };
-
+// ---------- ROBOT ----------
 function updateRobot() {
   robot.hp = 10;
   robot.damage = 1;
@@ -73,10 +98,7 @@ function updateRobot() {
   });
 }
 
-function spawnEnemy() {
-  enemies.push({ x: 800, y: 200, hp: 5, speed: 1 });
-}
-
+// ---------- GAME ----------
 function updateEnemies() {
   enemies.forEach(e => e.x -= e.speed);
 }
@@ -87,21 +109,19 @@ function attack() {
       e.hp -= robot.damage;
     }
   });
+
   enemies = enemies.filter(e => e.hp > 0);
 }
 
-function getColor(type) {
-  if (type === 'head') return '#4aa3ff';
-  if (type === 'body') return '#4aff88';
-  if (type === 'weapon') return '#ff4a4a';
-}
-
+// ---------- DRAW ----------
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // robot
   ctx.fillStyle = 'cyan';
   ctx.fillRect(robot.x, robot.y, 20, 20);
 
+  // enemies
   ctx.fillStyle = 'red';
   enemies.forEach(e => ctx.fillRect(e.x, e.y, 20, 20));
 
@@ -121,10 +141,10 @@ function draw() {
       h *= 1.1;
     }
 
-    const canUse = getTotalCost(card) <= maxEnergy;
-    ctx.globalAlpha = canUse ? 1 : 0.4;
+    ctx.fillStyle =
+      card.type === 'head' ? '#4aa3ff' :
+      card.type === 'body' ? '#4aff88' : '#ff4a4a';
 
-    ctx.fillStyle = getColor(card.type);
     ctx.fillRect(x, y, w, h);
 
     ctx.strokeStyle = selected[card.type] === card ? 'yellow' : 'white';
@@ -133,17 +153,14 @@ function draw() {
     ctx.fillStyle = 'black';
     ctx.fillText(card.name, x + 10, y + 30);
     ctx.fillText(`Cost: ${card.cost}`, x + 10, y + 50);
-
-    ctx.globalAlpha = 1;
   });
 
   ctx.fillStyle = 'white';
-  ctx.fillText(`Energy: ${currentEnergy}/${maxEnergy}`, 10, 20);
-  ctx.fillText(`Head: ${selected.head?.name || '-'}`, 10, 40);
-  ctx.fillText(`Body: ${selected.body?.name || '-'}`, 10, 60);
-  ctx.fillText(`Weapon: ${selected.weapon?.name || '-'}`, 10, 80);
+  ctx.fillText(`Wave: ${wave}`, 10, 20);
+  ctx.fillText(`Enemies left: ${waveEnemiesLeft}`, 10, 40);
 }
 
+// ---------- INPUT ----------
 canvas.addEventListener('mousemove', (e) => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
@@ -173,13 +190,22 @@ canvas.addEventListener('click', (e) => {
   });
 });
 
+// ---------- LOOP ----------
 function gameLoop() {
   updateEnemies();
   attack();
   draw();
+
+  if (waveEnemiesLeft === 0 && enemies.length === 0) {
+    wave++;
+    startWave();
+  }
+
   requestAnimationFrame(gameLoop);
 }
 
-setInterval(spawnEnemy, 2000);
+// start
+startWave();
+setInterval(spawnEnemy, 1000);
 
 gameLoop();
