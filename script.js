@@ -12,8 +12,8 @@ const cards = [
 ];
 
 let selectedCards = [];
+let hoveredCard = null;
 
-// bottom hand UI
 function getCardUI() {
   const width = 100;
   const height = 140;
@@ -36,7 +36,6 @@ function selectCard(index) {
   updateRobot();
 }
 
-// --- ROBOT ---
 let robot = {
   x: 100,
   y: 200,
@@ -57,20 +56,12 @@ function updateRobot() {
   });
 }
 
-// --- ENEMIES ---
 function spawnEnemy() {
-  enemies.push({
-    x: 800,
-    y: 200,
-    hp: 5,
-    speed: 1
-  });
+  enemies.push({ x: 800, y: 200, hp: 5, speed: 1 });
 }
 
 function updateEnemies() {
-  enemies.forEach(e => {
-    e.x -= e.speed;
-  });
+  enemies.forEach(e => e.x -= e.speed);
 }
 
 function attack() {
@@ -79,62 +70,74 @@ function attack() {
       e.hp -= robot.damage;
     }
   });
-
   enemies = enemies.filter(e => e.hp > 0);
 }
 
-// --- DRAW ---
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Robot
   ctx.fillStyle = 'cyan';
   ctx.fillRect(robot.x, robot.y, 20, 20);
 
-  // Enemies
   ctx.fillStyle = 'red';
-  enemies.forEach(e => {
-    ctx.fillRect(e.x, e.y, 20, 20);
-  });
+  enemies.forEach(e => ctx.fillRect(e.x, e.y, 20, 20));
 
-  // Cards bottom
   const cardUI = getCardUI();
 
   cardUI.forEach(ui => {
     const card = cards[ui.index];
 
-    ctx.strokeStyle = 'white';
-    ctx.strokeRect(ui.x, ui.y, ui.width, ui.height);
+    let x = ui.x;
+    let y = ui.y;
+    let w = ui.width;
+    let h = ui.height;
+
+    if (hoveredCard === ui.index) {
+      y -= 20;
+      w *= 1.1;
+      h *= 1.1;
+    }
+
+    ctx.strokeStyle = selectedCards.includes(card) ? 'lime' : 'white';
+    ctx.strokeRect(x, y, w, h);
 
     ctx.fillStyle = 'white';
-    ctx.fillText(card.name, ui.x + 10, ui.y + 30);
-    ctx.fillText(`Cost: ${card.cost}`, ui.x + 10, ui.y + 60);
+    ctx.fillText(card.name, x + 10, y + 30);
+    ctx.fillText(`Cost: ${card.cost}`, x + 10, y + 60);
   });
 
   ctx.fillText("Selected: " + selectedCards.map(c => c.name).join(', '), 10, 20);
 }
 
-// --- INPUT ---
+canvas.addEventListener('mousemove', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  hoveredCard = null;
+  const cardUI = getCardUI();
+
+  cardUI.forEach(ui => {
+    if (mx >= ui.x && mx <= ui.x + ui.width && my >= ui.y && my <= ui.y + ui.height) {
+      hoveredCard = ui.index;
+    }
+  });
+});
+
 canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
 
   const cardUI = getCardUI();
 
   cardUI.forEach(ui => {
-    if (
-      mouseX >= ui.x &&
-      mouseX <= ui.x + ui.width &&
-      mouseY >= ui.y &&
-      mouseY <= ui.y + ui.height
-    ) {
+    if (mx >= ui.x && mx <= ui.x + ui.width && my >= ui.y && my <= ui.y + ui.height) {
       selectCard(ui.index);
     }
   });
 });
 
-// --- LOOP ---
 function gameLoop() {
   updateEnemies();
   attack();
