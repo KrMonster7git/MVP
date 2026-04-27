@@ -164,17 +164,17 @@ function getCardUI() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // robot
+  // ---------------- ROBOT ----------------
   ctx.fillStyle = "cyan";
   ctx.fillRect(robot.x, robot.y, 20, 20);
 
-  // enemies
+  // ---------------- ENEMIES ----------------
   enemies.forEach(e => {
     ctx.fillStyle = enemyTypes[e.type].color;
     ctx.fillRect(e.x, e.y, 20, 20);
   });
 
-  // cards
+  // ---------------- CARDS ----------------
   const ui = getCardUI();
 
   ui.forEach(u => {
@@ -182,6 +182,10 @@ function draw() {
 
     let x = u.x, y = u.y;
     if (hoveredCard === u.index) y -= 20;
+
+    const canUse = getTotalCost(c) <= maxEnergy;
+
+    ctx.globalAlpha = canUse ? 1 : 0.4;
 
     ctx.fillStyle =
       c.type === "head" ? "#4aa3ff" :
@@ -192,13 +196,22 @@ function draw() {
     ctx.strokeStyle = selected[c.type] === c ? "yellow" : "white";
     ctx.strokeRect(x, y, u.width, u.height);
 
+    // ---------------- TEXT ----------------
     ctx.fillStyle = "black";
-    ctx.fillText(c.name, x + 10, y + 30);
+    ctx.fillText(c.name, x + 8, y + 25);
+
+    ctx.fillText(`Cost: ${c.cost}`, x + 8, y + 45);
+
+    if (c.ability) {
+      ctx.fillText(`Ability: ${c.ability}`, x + 8, y + 65);
+    }
+
+    ctx.globalAlpha = 1;
   });
 
-  // shop
+  // ---------------- SHOP ----------------
   if (inShop) {
-    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillStyle = "rgba(0,0,0,0.75)";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = "white";
@@ -216,12 +229,22 @@ function draw() {
 
       ctx.fillStyle = "black";
       ctx.fillText(c.name, x + 10, y + 40);
-      ctx.fillText("CLICK", x + 10, y + 120);
+      ctx.fillText(`Cost: ${c.cost}`, x + 10, y + 60);
+
+      if (c.ability) {
+        ctx.fillText(c.ability, x + 10, y + 80);
+      }
+
+      ctx.fillStyle = "white";
+      ctx.fillText("CLICK", x + 10, y + 130);
     });
   }
 
+  // ---------------- HUD ----------------
   ctx.fillStyle = "white";
   ctx.fillText(`Wave: ${wave}`, 10, 20);
+  ctx.fillText(`Enemies: ${enemies.length}`, 10, 40);
+  ctx.fillText(`Energy: ${maxEnergy}`, 10, 60);
 }
 
 // ---------------- INPUT ----------------
