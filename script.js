@@ -3,16 +3,33 @@ const ctx = canvas.getContext('2d');
 
 let enemies = [];
 
-// --- CARDS WITH TYPES ---
+// --- CARDS WITH TYPES + COST ---
 const cards = [
-  { name: "Light Head", type: "head", damage: 1 },
-  { name: "Heavy Body", type: "body", hp: 30 },
-  { name: "Laser Gun", type: "weapon", damage: 2, range: 120 },
-  { name: "Cannon", type: "weapon", damage: 4, range: 80 }
+  { name: "Light Head", type: "head", damage: 1, cost: 1 },
+  { name: "Heavy Body", type: "body", hp: 30, cost: 3 },
+  { name: "Laser Gun", type: "weapon", damage: 2, range: 120, cost: 2 },
+  { name: "Cannon", type: "weapon", damage: 4, range: 80, cost: 3 }
 ];
 
 let selected = { head: null, body: null, weapon: null };
 let hoveredCard = null;
+
+// ENERGY
+let maxEnergy = 5;
+let currentEnergy = 5;
+
+function getTotalCost(nextCard=null) {
+  let total = 0;
+  Object.values(selected).forEach(c => { if (c) total += c.cost; });
+
+  if (nextCard) {
+    const existing = selected[nextCard.type];
+    if (existing) total -= existing.cost;
+    total += nextCard.cost;
+  }
+
+  return total;
+}
 
 function getCardUI() {
   const width = 100;
@@ -32,7 +49,12 @@ function getCardUI() {
 
 function selectCard(index) {
   const card = cards[index];
+  const cost = getTotalCost(card);
+
+  if (cost > maxEnergy) return;
+
   selected[card.type] = card;
+  currentEnergy = maxEnergy - getTotalCost();
   updateRobot();
 }
 
@@ -99,6 +121,9 @@ function draw() {
       h *= 1.1;
     }
 
+    const canUse = getTotalCost(card) <= maxEnergy;
+    ctx.globalAlpha = canUse ? 1 : 0.4;
+
     ctx.fillStyle = getColor(card.type);
     ctx.fillRect(x, y, w, h);
 
@@ -107,13 +132,16 @@ function draw() {
 
     ctx.fillStyle = 'black';
     ctx.fillText(card.name, x + 10, y + 30);
-    ctx.fillText(card.type, x + 10, y + 50);
+    ctx.fillText(`Cost: ${card.cost}`, x + 10, y + 50);
+
+    ctx.globalAlpha = 1;
   });
 
   ctx.fillStyle = 'white';
-  ctx.fillText(`Head: ${selected.head?.name || '-'}`, 10, 20);
-  ctx.fillText(`Body: ${selected.body?.name || '-'}`, 10, 40);
-  ctx.fillText(`Weapon: ${selected.weapon?.name || '-'}`, 10, 60);
+  ctx.fillText(`Energy: ${currentEnergy}/${maxEnergy}`, 10, 20);
+  ctx.fillText(`Head: ${selected.head?.name || '-'}`, 10, 40);
+  ctx.fillText(`Body: ${selected.body?.name || '-'}`, 10, 60);
+  ctx.fillText(`Weapon: ${selected.weapon?.name || '-'}`, 10, 80);
 }
 
 canvas.addEventListener('mousemove', (e) => {
