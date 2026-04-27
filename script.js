@@ -3,15 +3,15 @@ const ctx = canvas.getContext('2d');
 
 let enemies = [];
 
-// --- CARDS SYSTEM ---
+// --- CARDS WITH TYPES ---
 const cards = [
-  { name: "Light Body", hp: 10, cost: 1 },
-  { name: "Heavy Body", hp: 30, cost: 3 },
-  { name: "Laser Gun", damage: 1, range: 120, cost: 2 },
-  { name: "Cannon", damage: 3, range: 80, cost: 3 }
+  { name: "Light Head", type: "head", damage: 1 },
+  { name: "Heavy Body", type: "body", hp: 30 },
+  { name: "Laser Gun", type: "weapon", damage: 2, range: 120 },
+  { name: "Cannon", type: "weapon", damage: 4, range: 80 }
 ];
 
-let selectedCards = [];
+let selected = { head: null, body: null, weapon: null };
 let hoveredCard = null;
 
 function getCardUI() {
@@ -31,25 +31,20 @@ function getCardUI() {
 }
 
 function selectCard(index) {
-  if (selectedCards.length >= 2) return;
-  selectedCards.push(cards[index]);
+  const card = cards[index];
+  selected[card.type] = card;
   updateRobot();
 }
 
-let robot = {
-  x: 100,
-  y: 200,
-  hp: 10,
-  damage: 1,
-  range: 100
-};
+let robot = { x: 100, y: 200, hp: 10, damage: 1, range: 100 };
 
 function updateRobot() {
   robot.hp = 10;
   robot.damage = 1;
   robot.range = 100;
 
-  selectedCards.forEach(c => {
+  Object.values(selected).forEach(c => {
+    if (!c) return;
     if (c.hp) robot.hp += c.hp;
     if (c.damage) robot.damage += c.damage;
     if (c.range) robot.range = c.range;
@@ -71,6 +66,12 @@ function attack() {
     }
   });
   enemies = enemies.filter(e => e.hp > 0);
+}
+
+function getColor(type) {
+  if (type === 'head') return '#4aa3ff';
+  if (type === 'body') return '#4aff88';
+  if (type === 'weapon') return '#ff4a4a';
 }
 
 function draw() {
@@ -98,15 +99,21 @@ function draw() {
       h *= 1.1;
     }
 
-    ctx.strokeStyle = selectedCards.includes(card) ? 'lime' : 'white';
+    ctx.fillStyle = getColor(card.type);
+    ctx.fillRect(x, y, w, h);
+
+    ctx.strokeStyle = selected[card.type] === card ? 'yellow' : 'white';
     ctx.strokeRect(x, y, w, h);
 
-    ctx.fillStyle = 'white';
+    ctx.fillStyle = 'black';
     ctx.fillText(card.name, x + 10, y + 30);
-    ctx.fillText(`Cost: ${card.cost}`, x + 10, y + 60);
+    ctx.fillText(card.type, x + 10, y + 50);
   });
 
-  ctx.fillText("Selected: " + selectedCards.map(c => c.name).join(', '), 10, 20);
+  ctx.fillStyle = 'white';
+  ctx.fillText(`Head: ${selected.head?.name || '-'}`, 10, 20);
+  ctx.fillText(`Body: ${selected.body?.name || '-'}`, 10, 40);
+  ctx.fillText(`Weapon: ${selected.weapon?.name || '-'}`, 10, 60);
 }
 
 canvas.addEventListener('mousemove', (e) => {
