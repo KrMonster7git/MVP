@@ -1,5 +1,5 @@
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
 let enemies = [];
 
@@ -16,7 +16,6 @@ let hoveredCard = null;
 
 // ---------------- ENERGY ----------------
 let maxEnergy = 5;
-let currentEnergy = 5;
 
 // ---------------- WAVES ----------------
 let wave = 1;
@@ -25,19 +24,63 @@ let waveEnemiesLeft = 0;
 // ---------------- ROBOT ----------------
 let robot = { x: 100, y: 200, hp: 10, damage: 1, range: 100 };
 
+// ---------------- ENEMY TYPES ----------------
+const enemyTypes = {
+  normal: {
+    hp: 5,
+    speed: 1,
+    burnMult: 1,
+    splashMult: 1,
+    color: "red"
+  },
+
+  fast: {
+    hp: 3,
+    speed: 2,
+    burnMult: 1.2,
+    splashMult: 1,
+    color: "orange"
+  },
+
+  tank: {
+    hp: 15,
+    speed: 0.6,
+    burnMult: 0.5,
+    splashMult: 0.8,
+    color: "gray"
+  },
+
+  volatile: {
+    hp: 4,
+    speed: 1.2,
+    burnMult: 1,
+    splashMult: 1.8,
+    color: "purple"
+  }
+};
+
 // ---------------- WAVES ----------------
 function startWave() {
   waveEnemiesLeft = 5 + wave * 2;
 }
 
+function randomEnemyType() {
+  const types = ["normal", "fast", "tank", "volatile"];
+  return types[Math.floor(Math.random() * types.length)];
+}
+
 function spawnEnemy() {
   if (waveEnemiesLeft <= 0) return;
+
+  const type = randomEnemyType();
+  const t = enemyTypes[type];
 
   enemies.push({
     x: 800,
     y: 200,
-    hp: 3 + wave * 2,
-    speed: 1 + wave * 0.1,
+    type,
+    hp: t.hp + wave,
+    speed: t.speed + wave * 0.05,
     burnTimer: 0,
     burnDamage: 0
   });
@@ -45,7 +88,7 @@ function spawnEnemy() {
   waveEnemiesLeft--;
 }
 
-// ---------------- CARDS ----------------
+// ---------------- CARDS UI ----------------
 function getCardUI() {
   const w = 100, h = 140, gap = 20;
   const total = cards.length * w + (cards.length - 1) * gap;
@@ -60,23 +103,8 @@ function getCardUI() {
   }));
 }
 
-function getTotalCost(nextCard = null) {
-  let total = 0;
-  Object.values(selected).forEach(c => { if (c) total += c.cost; });
-
-  if (nextCard) {
-    const ex = selected[nextCard.type];
-    if (ex) total -= ex.cost;
-    total += nextCard.cost;
-  }
-
-  return total;
-}
-
 function selectCard(index) {
   const card = cards[index];
-  if (getTotalCost(card) > maxEnergy) return;
-
   selected[card.type] = card;
   updateRobot();
 }
@@ -100,9 +128,10 @@ function updateEnemies() {
   enemies.forEach(e => {
     e.x -= e.speed;
 
-    // 🔥 burn effect
+    // burn
     if (e.burnTimer > 0) {
-      e.hp -= e.burnDamage;
+      const mult = enemyTypes[e.type].burnMult;
+      e.hp -= e.burnDamage * mult;
       e.burnTimer--;
     }
   });
@@ -110,26 +139,30 @@ function updateEnemies() {
   enemies = enemies.filter(e => e.hp > 0);
 }
 
-// ---------------- ATTACK + ABILITIES ----------------
+// ---------------- ATTACK + EFFECTS ----------------
 function attack() {
+  const weapon = selected.weapon;
+
   enemies.forEach(e => {
     if (Math.abs(e.x - robot.x) < robot.range) {
       e.hp -= robot.damage;
 
-      const weapon = selected.weapon;
       if (!weapon) return;
+
+      const typeData = enemyTypes[e.type];
 
       // 🔥 BURN
       if (weapon.ability === "burn") {
-        e.burnTimer = 60; // ~1 sec
-        e.burnDamage = 0.2;
+        e.burnTimer = 60;
+        e.burnDamage = 0.2 * typeData.burnMult;
       }
 
       // 💥 SPLASH
       if (weapon.ability === "splash") {
         enemies.forEach(o => {
           if (o !== e && Math.abs(o.x - e.x) < 40) {
-            o.hp -= robot.damage * 0.5;
+            const mult = enemyTypes[o.type].splashMult;
+            o.hp -= robot.damage * 0.5 * mult;
           }
         });
       }
@@ -143,11 +176,13 @@ function attack() {
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // robot
   ctx.fillStyle = "cyan";
   ctx.fillRect(robot.x, robot.y, 20, 20);
 
+  // enemies
   enemies.forEach(e => {
-    ctx.fillStyle = e.burnTimer > 0 ? "orange" : "red";
+    ctx.fillStyle = enemyTypes[e.type].color;
     ctx.fillRect(e.x, e.y, 20, 20);
   });
 
@@ -160,47 +195,24 @@ function draw() {
 
     if (hoveredCard === u.index) y -= 20;
 
-    ctx.fillStyle = "#333";
+    ctx.fillStyle =
+      c.type === "head" ? "#4aa3ff" :
+      c.type === "body" ? "#4aff88" : "#ff4a4a";
+
     ctx.fillRect(x, y, u.width, u.height);
 
     ctx.strokeStyle = selected[c.type] === c ? "yellow" : "white";
     ctx.strokeRect(x, y, u.width, u.height);
 
-    ctx.fillStyle = "white";
+    ctx.fillStyle = "black";
     ctx.fillText(c.name, x + 10, y + 30);
     ctx.fillText(c.ability || "-", x + 10, y + 60);
   });
 
   ctx.fillStyle = "white";
   ctx.fillText(`Wave: ${wave}`, 10, 20);
+  ctx.fillText(`Enemies: ${enemies.length}`, 10, 40);
 }
-
-// ---------------- INPUT ----------------
-canvas.addEventListener("mousemove", e => {
-  const r = canvas.getBoundingClientRect();
-  const mx = e.clientX - r.left;
-  const my = e.clientY - r.top;
-
-  hoveredCard = null;
-
-  getCardUI().forEach(u => {
-    if (mx > u.x && mx < u.x + u.width && my > u.y && my < u.y + u.height) {
-      hoveredCard = u.index;
-    }
-  });
-});
-
-canvas.addEventListener("click", e => {
-  const r = canvas.getBoundingClientRect();
-  const mx = e.clientX - r.left;
-  const my = e.clientY - r.top;
-
-  getCardUI().forEach(u => {
-    if (mx > u.x && mx < u.x + u.width && my > u.y && my < u.y + u.height) {
-      selectCard(u.index);
-    }
-  });
-});
 
 // ---------------- LOOP ----------------
 function loop() {
@@ -218,5 +230,4 @@ function loop() {
 
 startWave();
 setInterval(spawnEnemy, 900);
-
 loop();
